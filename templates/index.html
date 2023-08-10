@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Stream</title>
+    <style>
+        #videoContainer {
+            position: relative;
+            display: inline-block;
+        }
+
+        #uniqueNumberDisplay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 18px;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Camera Stream</h1>
+    <div id="videoContainer">
+        <video id="video" autoplay></video>
+        <div id="uniqueNumberDisplay"></div> <!-- Container for displaying unique number -->
+    </div>
+    <button id="startButton">Start Streaming</button>
+    <button id="stopButton" disabled>Stop Streaming</button>
+    <script>
+        const videoElement = document.getElementById('video');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const uniqueNumberDisplay = document.getElementById('uniqueNumberDisplay');
+        
+        let stream;
+
+        startButton.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+                // Attach the stream to the video element
+                videoElement.srcObject = stream;
+
+                // Enable the Stop Streaming button
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+            }
+        });
+
+        stopButton.addEventListener('click', () => {
+            if (stream) {
+                // Stop the stream, release the camera, and disable the Stop Streaming button
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+                stream = null;
+
+                videoElement.srcObject = null;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            }
+        });
+
+        setInterval(() => {
+            if (stream && stream.active) {
+                const canvas = document.createElement('canvas');
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                const frameData = canvas.toDataURL('image/jpeg');
+
+                // Send frame data to the Flask backend
+                fetch('/process_frame', {
+                    method: 'POST',
+                    body: JSON.stringify({ frame: frameData }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const uniqueNumber = data.unique_no; 
+                    const canvasContext = videoElement.getContext('2d');
+                    canvasContext.font = '18px Arial';
+                    canvasContext.fillStyle = 'white';
+                    canvasContext.fillText(uniqueNumber, 10, 30); // Adjust position as needed
+                })
+                .catch(error => console.error('Error processing frame:', error));
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
