@@ -15,6 +15,9 @@
             font-size: 18px;
             color: white;
         }
+        #video {
+            transform: scaleX(-1); /* Flip the video horizontally */
+        }
     </style>
 </head>
 <body>
@@ -30,7 +33,7 @@
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const uniqueNumberDisplay = document.getElementById('uniqueNumberDisplay');
-        
+
         let stream;
 
         startButton.addEventListener('click', async () => {
@@ -66,7 +69,8 @@
                 const canvas = document.createElement('canvas');
                 canvas.width = videoElement.videoWidth;
                 canvas.height = videoElement.videoHeight;
-                canvas.getContext('2d').drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                const context = canvas.getContext('2d');
+                context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 const frameData = canvas.toDataURL('image/jpeg');
 
                 // Send frame data to the Flask backend
@@ -79,11 +83,8 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    const uniqueNumber = data.unique_no; 
-                    const canvasContext = videoElement.getContext('2d');
-                    canvasContext.font = '18px Arial';
-                    canvasContext.fillStyle = 'white';
-                    canvasContext.fillText(uniqueNumber, 10, 30); // Adjust position as needed
+                    const uniqueNumber = data.unique_no;
+                    uniqueNumberDisplay.innerText = `Unique Number: ${uniqueNumber}`;
                 })
                 .catch(error => console.error('Error processing frame:', error));
             }
