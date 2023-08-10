@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Camera Stream</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.7/dist/tailwind.min.css" rel="stylesheet">
     <style>
         #videoContainer {
             position: relative;
@@ -20,14 +21,28 @@
         }
     </style>
 </head>
-<body>
-    <h1>Camera Stream</h1>
-    <div id="videoContainer">
-        <video id="video" autoplay></video>
-        <div id="uniqueNumberDisplay"></div> <!-- Container for displaying unique number -->
-    </div>
-    <button id="startButton">Start Streaming</button>
-    <button id="stopButton" disabled>Stop Streaming</button>
+<body class="bg-gray-100">
+    <div class="relative flex min-h-screen flex-col justify-center overflow-hidden bg-gray-50 py-6 sm:py-12">
+        <div class="absolute ] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
+        <div class="relative bg-white px-6 pt-10 pb-8 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10">
+          <div class="mx-auto max-w-md">
+            <h1 class="text-3xl text-center mt-8">Sign Langue Prediction</h1>
+            <div class="divide-y divide-gray-300/50">
+              <div class="space-y-6 py-8 text-base leading-7 text-gray-600">
+                <div class="relative inline-block mt-8 flex justify-center" id="videoContainer">
+                    <video id="video" autoplay class="w-full"></video>
+                    <div id="uniqueNumberDisplay" class="py-2 px-4 rounded text-white"></div>
+                </div>
+                <div class="flex justify-center space-x-4 mt-4">
+                    <button id="startButton" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50">Start Streaming</button>
+                    <button id="stopButton" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50 hidden" disabled>Stop Streaming</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
     <script>
         const videoElement = document.getElementById('video');
         const startButton = document.getElementById('startButton');
@@ -44,8 +59,14 @@
                 videoElement.srcObject = stream;
 
                 // Enable the Stop Streaming button
-                startButton.disabled = true;
+                 // Toggle button visibility and content
+                startButton.classList.add('hidden');
+                stopButton.classList.remove('hidden');
+
                 stopButton.disabled = false;
+
+                uniqueNumberDisplay.classList.remove('hidden');
+
             } catch (error) {
                 console.error('Error accessing camera:', error);
             }
@@ -58,9 +79,13 @@
                 tracks.forEach(track => track.stop());
                 stream = null;
 
+                startButton.classList.remove('hidden');
+                stopButton.classList.add('hidden');
+
                 videoElement.srcObject = null;
                 startButton.disabled = false;
                 stopButton.disabled = true;
+                uniqueNumberDisplay.classList.add('hidden');
             }
         });
 
@@ -84,7 +109,7 @@
                 .then(response => response.json())
                 .then(data => {
                     const uniqueNumber = data.unique_no;
-                    uniqueNumberDisplay.innerText = `Unique Number: ${uniqueNumber}`;
+                    uniqueNumberDisplay.innerText = `Prediction: Down`;
                 })
                 .catch(error => console.error('Error processing frame:', error));
             }
