@@ -81,7 +81,7 @@ def process_frame(data):
         nparr = np.frombuffer(decoded_data, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         frames.append(frame)
-    if len(frames) == 10:
+    if len(frames) == 5:
             result = predict_frame(frames, unique_number)
             frames = []
             logger.info(f"Frame processed successfully with unique frame number: {unique_number}, result: {result}")

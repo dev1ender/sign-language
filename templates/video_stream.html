@@ -145,6 +145,7 @@
 
     <!-- scripts -->
     <script>
+        const socket = io('http://127.0.0.1:5000');
         const videoElement = document.getElementById('video');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
@@ -186,7 +187,7 @@
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
                 stopButton.disabled = false;
-
+                frameInterval = setInterval(sendFrame, 350);
                 streamLoading.hidden = true
                 chatDisplay.classList.remove('hidden');
 
@@ -206,9 +207,10 @@
                 videoElement.srcObject = null;
                 startButton.disabled = false;
                 stopButton.disabled = true;
-                chatDisplay.innerHTML = ""
-                chatDisplay.classList.add('hidden');
+                // chatDisplay.innerHTML = ""
+                // chatDisplay.classList.add('hidden');
                 streamThumbTxt.hidden = false
+                clearInterval(frameInterval);
             }
         });
 
@@ -221,25 +223,7 @@
                 context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 const frameData = canvas.toDataURL("image/jpeg");
 
-                // Send frame data to the Flask backend
-                fetch('/process_frame', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            frame: frameData
-                        }),
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        const uniqueNumber = data.unique_no;
-                        const newEle = document.createElement("p")
-                        newEle.innerText = "Prediction: Down: " + uniqueNumber
-                        chatDisplay.insertAdjacentElement("afterbegin", newEle);
-                        chatDisplay.scrollTop = chatDisplay.scrollHeight; // Scroll to bottom
-                    })
-                    .catch(error => console.error('Error processing frame:', error));
+                socket.emit("process_frame", { frame: frameData });
             }
         }
 
@@ -247,12 +231,10 @@
         socket.on("frame_processed", result => {
             // Extract the "prediction" value from the result
             const prediction = result.prediction;
-
-            // Add the prediction to the prediction list
-            const predictionList = document.getElementById("predictionList");
-            const listItem = document.createElement("li");
-            listItem.textContent = `Prediction: ${prediction}`;
-            predictionList.appendChild(listItem);
+            const newEle = document.createElement("p")
+            newEle.innerText = "Prediction: " + prediction
+            chatDisplay.insertAdjacentElement("afterbegin", newEle);
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
         });
     </script>
 
