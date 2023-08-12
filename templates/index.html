@@ -1,73 +1,198 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>ASL</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.7/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Bootstrap CSS CDN link -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <style>
-        #videoContainer {
-            position: relative;
-            display: inline-block;
+        * {
+            padding: 0 !important;
         }
 
-        #uniqueNumberDisplay {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 18px;
-            color: white;
+        body {
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
-        #video {
-            transform: scaleX(-1); /* Flip the video horizontally */
+
+        .container {
+            height: 77%;
+            box-shadow: 3px 3px 10px 0px #dedede;
+        }
+
+        .video-box {
+            height: 100%;
+            background-color: #f0f0f0;
+        }
+
+        .video-box h3 {
+            position: absolute;
+            top: 43%;
+            left: 20%;
+        }
+
+        .video-box p {
+            position: absolute;
+            top: 48%;
+            left: 42%;
+        }
+
+        .video-box #streamLoading {
+            margin: 0;
+            position: absolute;
+            top: 46%;
+            left: 38%;
+        }
+
+        .video-box #streamErr {
+            margin: 0;
+            position: absolute;
+            top: 46%;
+            left: 38%;
+            font-size: large;
+            font-weight: bold;
+        }
+
+
+        video {
+            /* Flip the video horizontally */
+            display: grid;
+            margin: 0 auto 0 auto;
+            transform: scaleX(-1);
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .chat-box {
+            height: 100%;
+            background-color: #ffffff;
+        }
+
+        .chat-display {
+            max-height: 100%;
+            height: 100%;
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column-reverse;
+            scroll-behavior: smooth;
+        }
+
+        .chat-display p {
+            animation: fadeIn 2s;
+            scroll-behavior: smooth;
+        }
+
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .btn-start-stream {
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none;
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="relative flex min-h-screen flex-col justify-center overflow-hidden bg-gray-50 py-6 sm:py-12">
-        <div class="absolute ] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
-        <div class="relative bg-white px-6 pt-10 pb-8 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10">
-          <div class="mx-auto max-w-md">
-            <h1 class="text-3xl text-center mt-8">Sign Language Prediction</h1>
-            <div class="divide-y divide-gray-300/50">
-              <div class="space-y-6 py-8 text-base leading-7 text-gray-600">
-                <div class="relative inline-block mt-8 flex justify-center" id="videoContainer">
-                    <video id="video" autoplay class="w-full"></video>
-                    <div id="uniqueNumberDisplay" class="py-2 px-4 rounded text-white"></div>
-                </div>
-                <div class="flex justify-center space-x-4 mt-4">
-                    <button id="startButton" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50">Start Streaming</button>
-                    <button id="stopButton" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50 hidden" disabled>Stop Streaming</button>
-                </div>
-              </div>
+
+<body>
+    <!-- title -->
+    <center>
+        <h2>Sign Language Detection</h2>
+    </center>
+
+    <!-- stream box -->
+    <div class="container row">
+        <div class="video-box col-md-9">
+            <div id="streamThumbTxt">
+                <h3>Welcome to Camera Streaming</h3><br>
+                <p>--made with AI</p>
             </div>
-          </div>
+            <!-- stream loading spinner -->
+            <div hidden id="streamLoading" class="spinner-grow" role="status"></div>
+            <!-- stream errors -->
+            <p hidden id="streamErr" class="text-danger"></p>
+
+            <!-- video source -->
+            <video id="video" autoplay></video>
         </div>
-      </div>
-    
+        <div class="chat-box col-md-3">
+            <!-- msgs -->
+            <div id="chatDisplay" class="p-2 chat-display">
+            </div>
+        </div>
+    </div>
+    <div class="flex justify-center space-x-4 mt-4">
+        <button id="startButton" class="btn btn-primary text-white py-2 px-4 rounded">Start
+            Streaming</button>
+        <button id="stopButton" class="btn btn-danger text-white py-2 px-4 rounded hidden" disabled>Stop
+            Streaming</button>
+    </div>
+
+    <!-- scripts -->
     <script>
         const videoElement = document.getElementById('video');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
-        const uniqueNumberDisplay = document.getElementById('uniqueNumberDisplay');
+        const chatDisplay = document.getElementById('chatDisplay');
+        const streamThumbTxt = document.getElementById('streamThumbTxt');
+        const streamLoading = document.getElementById('streamLoading');
+        const streamErr = document.getElementById('streamErr');
 
         let stream;
 
         startButton.addEventListener('click', async () => {
+            streamThumbTxt.hidden = true
+            streamLoading.hidden = false
+            streamErr.hidden = true
+
+            const constraints = {
+                video: {
+                    width: {
+                        min: 1280,
+                        ideal: 1920,
+                        max: 2560,
+                    },
+                    height: {
+                        min: 720,
+                        ideal: 1080,
+                        max: 1440,
+                    },
+                },
+            }
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
 
                 // Attach the stream to the video element
                 videoElement.srcObject = stream;
 
                 // Enable the Stop Streaming button
-                 // Toggle button visibility and content
+                // Toggle button visibility and content
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
 
                 stopButton.disabled = false;
 
-                uniqueNumberDisplay.classList.remove('hidden');
+                streamLoading.hidden = true
+                chatDisplay.classList.remove('hidden');
 
             } catch (error) {
+                streamErr.hidden = false
+                streamErr.innerText = "Error accessing camera: " + error
+                streamLoading.hidden = true
                 console.error('Error accessing camera:', error);
             }
         });
@@ -85,7 +210,9 @@
                 videoElement.srcObject = null;
                 startButton.disabled = false;
                 stopButton.disabled = true;
-                uniqueNumberDisplay.classList.add('hidden');
+                chatDisplay.innerHTML = ""
+                chatDisplay.classList.add('hidden');
+                streamThumbTxt.hidden = false
             }
         });
 
@@ -100,20 +227,31 @@
 
                 // Send frame data to the Flask backend
                 fetch('/process_frame', {
-                    method: 'POST',
-                    body: JSON.stringify({ frame: frameData }),
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    const uniqueNumber = data.unique_no;
-                    uniqueNumberDisplay.innerText = `Prediction: ${uniqueNumber}`;
-                })
-                .catch(error => console.error('Error processing frame:', error));
+                        method: 'POST',
+                        body: JSON.stringify({
+                            frame: frameData
+                        }),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        const uniqueNumber = data.unique_no;
+                        const newEle = document.createElement("p")
+                        newEle.innerText = "Prediction: Down: " + uniqueNumber
+                        chatDisplay.insertAdjacentElement("afterbegin", newEle);
+                        chatDisplay.scrollTop = chatDisplay.scrollHeight; // Scroll to bottom
+                    })
+                    .catch(error => console.error('Error processing frame:', error));
             }
         }, 1000);
     </script>
+
+    <!-- Bootstrap JS and Popper.js CDN links -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous">
+    </script>
 </body>
+
 </html>
