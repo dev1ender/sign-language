@@ -193,6 +193,11 @@
 
                 // Enable the Stop Streaming button
                 // Toggle button visibility and content
+                // Initialize socket connection if not already connected
+                if (!socket.connected) {
+                    socket.connect();
+                }
+
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
                 stopButton.disabled = false;
@@ -205,6 +210,7 @@
                 streamErr.innerText = "Error accessing camera: " + error
                 streamLoading.hidden = true
                 console.error('Error accessing camera:', error);
+                socket.disconnect();
             }
         });
 
@@ -216,10 +222,16 @@
                 videoElement.srcObject = null;
                 startButton.disabled = false;
                 stopButton.disabled = true;
+                startButton.classList.remove('hidden');
+                stopButton.classList.add('hidden');
                 // chatDisplay.innerHTML = ""
                 // chatDisplay.classList.add('hidden');
                 streamThumbTxt.hidden = false
                 clearInterval(frameInterval);
+                // Close the socket connection
+                if (!socket.connected) {
+                    socket.disconnect();
+                }
             }
         });
 

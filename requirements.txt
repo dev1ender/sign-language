@@ -7,5 +7,9 @@ Pillow==10.0.0
 tensorflow==2.13.0
 tensorflow-estimator==2.13.0
 tflite-runtime @ https://github.com/iCorv/tflite-runtime/raw/master/tflite_runtime-2.4.0-py3-none-any.whl#sha256=07aa85c3a0f1ca7db2b2a3cb171807eba7df5b79018c466f4750f938926c11a9
-mediapipe==0.10.2
+mediapipe
 flask_socketio
+gevent-websocket
+eventlet
+uwsgi
+

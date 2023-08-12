@@ -2,7 +2,7 @@
 FROM nginx:latest
 
 # Install uWSGI and Python
-RUN apt-get update && apt-get install -y uwsgi uwsgi-plugin-python3 python3-pip
+RUN apt-get update && apt-get install -y uwsgi uwsgi-plugin-python3 python3-pip python3-venv
 
 # Create a directory for the Flask app
 WORKDIR /app
@@ -12,8 +12,11 @@ COPY . .
 
 COPY nginx/nginx.conf /etc/nginx/conf.d/
 
-# Install Flask and any other Python dependencies
-RUN pip install -r requirements.txt
+# Create a virtual environment
+RUN python3 -m venv venv
+
+# Activate the virtual environment and install Flask and other dependencies
+RUN . venv/bin/activate && pip install -r requirements.txt
 
 # Expose the ports
 EXPOSE 80

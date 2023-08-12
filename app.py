@@ -12,6 +12,7 @@ from flask_socketio import SocketIO, emit
 from utils import generate_unique_number
 from auth.auth_blueprint import auth_blueprint
 from auth.auth_decorators import login_required
+from socketio import AsyncServer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,7 +31,9 @@ os.makedirs(PROCESSED_FRAMES_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 app.register_blueprint(auth_blueprint) # registering auth app blueprint
-socketio = SocketIO(app)
+# add eventlet and gevent
+socketio = SocketIO(app, async_mode="eventlet")
+
 
 # Load the model
 model = GestureModel("model/model.tflite", "model/train.csv.zip")
@@ -80,7 +83,9 @@ frames = []
 @socketio.on("process_frame")
 def process_frame(data):
     global frames
-
+    if len(data) <1:
+        return None
+    data = data[1]
     frame_data = data.get("frame", "")
     unique_number = generate_unique_number(10)
     if frame_data:
