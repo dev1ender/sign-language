@@ -8,6 +8,9 @@ import os
 import time
 import logging
 from ai import GestureModel
+from flask_socketio import SocketIO, emit
+from utils import generate_unique_number
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +27,7 @@ PARQUET_FILE_PATH = os.path.join(os.path.dirname(__file__), pq_file_sample)
 os.makedirs(PROCESSED_FRAMES_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 
 # Load the model
 model = GestureModel("model/model.tflite", "model/train.csv.zip")
@@ -32,54 +36,58 @@ logger.info("Model loaded successfully")
 
 
 # Processing function
-def process_frame(frame_data, unique_number):
+def predict_frame(frames, unique_number):
     global model
     global parquet
     logger.info(f"Processing frame with unique number: {unique_number}")
 
-    image_data = frame_data.split(",")[1]
-    decoded_data = base64.b64decode(image_data)
-    nparr = np.frombuffer(decoded_data, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    all_landmarks = model.create_landmarks(frame,parquet)
+    all_landmarks = model.create_landmarks(frames,parquet)
     sign = model.predict(all_landmarks)
 
     timestamp = int(time.time())
     if not sign:
         sign = "unknown"
     response = {
-        "unique_no": sign,
+        "prediction": sign,
         "timestamp": timestamp,
     }
-
-    json_response = make_response(response)
-    json_response.headers["Content-Type"] = "application/json"
-
-    return json_response
+    return response
 
 
 @app.route("/")
 def index():
     logger.info("Rendering index page")
-    return render_template("index.html")
+    return render_template("video_stream.html")
 
+@socketio.on("connect")
+def handle_connect():
+    print("Client connected")
 
-@app.route("/process_frame", methods=["POST"])
-def process_frame_route():
-    data = request.get_json()
+@socketio.on("disconnect")
+def handle_disconnect():
+    print("Client disconnected")
+
+frames = []
+
+@socketio.on("process_frame")
+def process_frame(data):
+    global frames
+
     frame_data = data.get("frame", "")
-    unique_number = "".join(random.choice(string.digits) for _ in range(10))
-
+    unique_number = generate_unique_number(10)
     if frame_data:
-        result = process_frame(frame_data, unique_number)
-        logger.info(f"Frame processed successfully with unique frame number: {unique_number}")
-        return result
-
-    logger.info("Frame data not received")
-    return "Frame data not received", 400
-
-
+        image_data = frame_data.split(",")[1]
+        decoded_data = base64.b64decode(image_data)
+        nparr = np.frombuffer(decoded_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        frames.append(frame)
+    if len(frames) == 10:
+            result = predict_frame(frames, unique_number)
+            frames = []
+            logger.info(f"Frame processed successfully with unique frame number: {unique_number}, result: {result}")
+            emit("frame_processed", result)
+    logger.info(f"frame count {len(frames)}")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)
+    host = os.getenv("HOST", "127.0.0.1")
+    socketio.run(app, port=5000)

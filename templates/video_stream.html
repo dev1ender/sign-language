@@ -4,6 +4,7 @@
 <head>
     <title>ASL</title>
     <!-- Bootstrap CSS CDN link -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <style>
@@ -153,6 +154,7 @@
         const streamErr = document.getElementById('streamErr');
 
         let stream;
+        let frameInterval;
 
         startButton.addEventListener('click', async () => {
             streamThumbTxt.hidden = true
@@ -183,7 +185,6 @@
                 // Toggle button visibility and content
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
-
                 stopButton.disabled = false;
 
                 streamLoading.hidden = true
@@ -197,16 +198,11 @@
             }
         });
 
-        stopButton.addEventListener('click', () => {
+        stopButton.addEventListener("click", () => {
             if (stream) {
-                // Stop the stream, release the camera, and disable the Stop Streaming button
                 const tracks = stream.getTracks();
                 tracks.forEach(track => track.stop());
                 stream = null;
-
-                startButton.classList.remove('hidden');
-                stopButton.classList.add('hidden');
-
                 videoElement.srcObject = null;
                 startButton.disabled = false;
                 stopButton.disabled = true;
@@ -216,14 +212,14 @@
             }
         });
 
-        setInterval(() => {
+        function sendFrame() {
             if (stream && stream.active) {
-                const canvas = document.createElement('canvas');
+                const canvas = document.createElement("canvas");
                 canvas.width = videoElement.videoWidth;
                 canvas.height = videoElement.videoHeight;
-                const context = canvas.getContext('2d');
+                const context = canvas.getContext("2d");
                 context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                const frameData = canvas.toDataURL('image/jpeg');
+                const frameData = canvas.toDataURL("image/jpeg");
 
                 // Send frame data to the Flask backend
                 fetch('/process_frame', {
@@ -245,7 +241,19 @@
                     })
                     .catch(error => console.error('Error processing frame:', error));
             }
-        }, 1000);
+        }
+
+        // Listen for the "frame_processed" event from the backend
+        socket.on("frame_processed", result => {
+            // Extract the "prediction" value from the result
+            const prediction = result.prediction;
+
+            // Add the prediction to the prediction list
+            const predictionList = document.getElementById("predictionList");
+            const listItem = document.createElement("li");
+            listItem.textContent = `Prediction: ${prediction}`;
+            predictionList.appendChild(listItem);
+        });
     </script>
 
     <!-- Bootstrap JS and Popper.js CDN links -->

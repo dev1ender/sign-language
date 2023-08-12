@@ -73,12 +73,15 @@ class GestureModel:
         self.found_signatures = list(self.interpreter.get_signature_list().keys())
         self.prediction_fn = self.interpreter.get_signature_runner("serving_default")
         self.mp_holistic = mp.solutions.holistic
-        self.holistic = self.mp_holistic.Holistic(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5)
-        
+        self.holistic = self.initialize_holistic()
         self.load_train_data(train_csv_path)
     
+    def initialize_holistic(self):
+        return self.mp_holistic.Holistic(
+            static_image_mode=True,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5)
+
     def read_parquet(self,pq_path):
         data = pd.read_parquet(pq_path)
         return data
@@ -90,21 +93,23 @@ class GestureModel:
 
     def create_landmarks(self, images, parquet_xyz):
         all_landmarks = pd.DataFrame()
-        frame = 0
         if self.holistic is None:
-            raise ValueError("Holistic instance is not initialized.")
-        for image in images:
+            print('holistic is Initialized..')
+            self.holistic = self.initialize_holistic()
+        frame = 0
+        for img in images:
             frame += 1
-            image.flags.writeable = False
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            with self.holistic as holistic:
-                results = holistic.process(image)
+            img.flags.writeable = False
+            image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            results = self.holistic.process(image)
             if results.left_hand_landmarks or results.right_hand_landmarks:
                 landmarks = create_frame_landmark_df(results,frame,parquet_xyz)
                 all_landmarks = pd.concat([all_landmarks,landmarks])
         return all_landmarks
         
     def predict(self, all_landmarks):
+        logging.info(f'predicting..')
+        logging.info(f'all_landmarks: shape {all_landmarks.shape}')
         if all_landmarks.shape[0] == 0:
             return None
         sign, confidence = prediction_func(all_landmarks,self.ORD2SIGN,self.prediction_fn)
