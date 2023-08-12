@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Camera Stream</title>
+    <title>ASL</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.7/dist/tailwind.min.css" rel="stylesheet">
     <style>
         #videoContainer {
@@ -26,7 +26,7 @@
         <div class="absolute ] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
         <div class="relative bg-white px-6 pt-10 pb-8 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10">
           <div class="mx-auto max-w-md">
-            <h1 class="text-3xl text-center mt-8">Sign Langue Prediction</h1>
+            <h1 class="text-3xl text-center mt-8">Sign Language Prediction</h1>
             <div class="divide-y divide-gray-300/50">
               <div class="space-y-6 py-8 text-base leading-7 text-gray-600">
                 <div class="relative inline-block mt-8 flex justify-center" id="videoContainer">
@@ -109,7 +109,7 @@
                 .then(response => response.json())
                 .then(data => {
                     const uniqueNumber = data.unique_no;
-                    uniqueNumberDisplay.innerText = `Prediction: Down`;
+                    uniqueNumberDisplay.innerText = `Prediction: ${uniqueNumber}`;
                 })
                 .catch(error => console.error('Error processing frame:', error));
             }

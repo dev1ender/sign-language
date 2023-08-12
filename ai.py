@@ -4,39 +4,12 @@ import pandas as pd
 import numpy as np
 # import nbformat
 import tensorflow as tf
-
+import logging
 # load model
 ## variables for openCV
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-mp_holistic = mp.solutions.holistic
-
-## defining the model 
-interpreter = tf.lite.Interpreter("model/model.tflite")
-print("GPU is", "available" , tf.config.list_physical_devices('GPU'))
-
-# Create a GPU delegate
-# delegate = tf.lite.experimental.load_delegate('libtensorflowlite_gpu_delegate.so')
-
-# # Bind the delegate to the interpreter
-# interpreter.add_delegate(delegate)
-
-# # Allocate tensors and invoke inference
-# interpreter.allocate_tensors()
-
-found_signatures = list(interpreter.get_signature_list().keys())
-prediction_fn = interpreter.get_signature_runner("serving_default")
 
 ROWS_PER_FRAME = 543  # number of landmarks per frame
 
-# load train categories to be used in prediction
-train = pd.read_csv('model/train.csv.zip')
-train['sign_ord'] = train['sign'].astype('category').cat.codes
-
-
-def read_parquet(pq_path):
-    data = pd.read_parquet(pq_path)
-    return data
 
 def create_frame_landmark_df(results, frame, xyz):
     xyz_skel = xyz[['type','landmark_index']].drop_duplicates().reset_index(drop=True).copy()
@@ -83,11 +56,7 @@ def load_relevant_data_subset(data):
     data = data.values.reshape(n_frames, ROWS_PER_FRAME, len(data_columns))
     return data.astype(np.float32)
 
-def prediction_func(data):
-    # Dictionaries to translate sign <-> ordinal encoded sign
-    SIGN2ORD = train[['sign', 'sign_ord']].set_index('sign').squeeze().to_dict()
-    ORD2SIGN = train[['sign_ord', 'sign']].set_index('sign_ord').squeeze().to_dict()
-
+def prediction_func(data,ORD2SIGN,prediction_fn):
     ## load data from output parquet
     xyz_np = load_relevant_data_subset(data)
     prediction = prediction_fn(inputs=xyz_np)
@@ -96,27 +65,51 @@ def prediction_func(data):
     sign = ORD2SIGN[pred]
     return sign, prediction_confidence
 
-def create_landmarks(images,parquet_xyz):
-    all_landmarks = pd.DataFrame()
-    frame = 0
-    for image in images:
-        with mp_holistic.Holistic(
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5) as holistic:
+    
+class GestureModel:
+    def __init__(self, model_path, train_csv_path):
+        self.interpreter = tf.lite.Interpreter(model_path)
+        self.interpreter.allocate_tensors()
+        self.found_signatures = list(self.interpreter.get_signature_list().keys())
+        self.prediction_fn = self.interpreter.get_signature_runner("serving_default")
+        self.mp_holistic = mp.solutions.holistic
+        self.holistic = self.mp_holistic.Holistic(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5)
+        
+        self.load_train_data(train_csv_path)
+    
+    def read_parquet(self,pq_path):
+        data = pd.read_parquet(pq_path)
+        return data
+        
+    def load_train_data(self, train_csv_path):
+        self.train_data = pd.read_csv(train_csv_path)
+        self.train_data['sign_ord'] = self.train_data['sign'].astype('category').cat.codes
+        self.ORD2SIGN = self.train_data[['sign_ord', 'sign']].set_index('sign_ord').squeeze().to_dict()
+
+    def create_landmarks(self, images, parquet_xyz):
+        all_landmarks = pd.DataFrame()
+        frame = 0
+        if self.holistic is None:
+            raise ValueError("Holistic instance is not initialized.")
+        for image in images:
             frame += 1
             image.flags.writeable = False
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = holistic.process(image)
+            with self.holistic as holistic:
+                results = holistic.process(image)
             if results.left_hand_landmarks or results.right_hand_landmarks:
                 landmarks = create_frame_landmark_df(results,frame,parquet_xyz)
                 all_landmarks = pd.concat([all_landmarks,landmarks])
-    return all_landmarks
-
-def predict(all_landmarks):
-    sign, confidence = prediction_func(all_landmarks)
-    if confidence > 0.01:
-        return sign
-    else:
-        return None
-    
+        return all_landmarks
         
+    def predict(self, all_landmarks):
+        if all_landmarks.shape[0] == 0:
+            return None
+        sign, confidence = prediction_func(all_landmarks,self.ORD2SIGN,self.prediction_fn)
+        if confidence > 0.01:
+            return sign
+        else:
+            return None
+            
