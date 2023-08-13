@@ -1,3 +1,6 @@
+
+from gevent import monkey
+monkey.patch_all()
 from flask import Flask, Response, render_template, request, make_response, redirect
 import cv2
 import base64
@@ -12,7 +15,7 @@ from flask_socketio import SocketIO, emit
 from utils import generate_unique_number
 from auth.auth_blueprint import auth_blueprint
 from auth.auth_decorators import login_required
-from socketio import AsyncServer
+from geventwebsocket.handler import WebSocketHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,7 +35,7 @@ os.makedirs(PROCESSED_FRAMES_FOLDER, exist_ok=True)
 app = Flask(__name__)
 app.register_blueprint(auth_blueprint) # registering auth app blueprint
 # add eventlet and gevent
-socketio = SocketIO(app, async_mode="eventlet")
+socketio = SocketIO(app, async_mode='gevent', handler_class=WebSocketHandler)
 
 
 # Load the model
@@ -83,9 +86,6 @@ frames = []
 @socketio.on("process_frame")
 def process_frame(data):
     global frames
-    if len(data) <1:
-        return None
-    data = data[1]
     frame_data = data.get("frame", "")
     unique_number = generate_unique_number(10)
     if frame_data:
@@ -105,4 +105,4 @@ def process_frame(data):
 
 if __name__ == "__main__":
     host = os.getenv("HOST", "127.0.0.1")
-    socketio.run(app, port=5000)
+    socketio.run(app, host='0.0.0.0', port=8000)
