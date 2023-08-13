@@ -105,4 +105,4 @@ def process_frame(data):
 
 if __name__ == "__main__":
     host = os.getenv("HOST", "127.0.0.1")
-    socketio.run(app, host='0.0.0.0', port=8000)
+    socketio.run(app, host='0.0.0.0', port=8000,log_output=True)
