@@ -154,7 +154,7 @@
 
     <!-- scripts -->
     <script>
-        let socket = io();
+        let socket;
         const videoElement = document.getElementById('video');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
@@ -165,6 +165,10 @@
 
         let stream;
         let frameInterval;
+
+        function generateCustomSocketID() {
+            return Math.random().toString(36).substr(2, 9);
+        }
 
         startButton.addEventListener('click', async () => {
             streamThumbTxt.hidden = true
@@ -191,23 +195,27 @@
                 
                 // Attach the stream to the video element
                 videoElement.srcObject = stream;
-
-                // Enable the Stop Streaming button
-                // Toggle button visibility and content
-                // Initialize socket connection if not already connected
+                socket = io();
+                console.log("socket",socket)
+                // Initialize socket connection with the user's session ID
+                // let userSid = socket && socket.id ? socket.id : null;
+                // if (userSid) {
+                //     throw new Error('Unable to get user session ID');
+                //     userSid= generateCustomSocketID();
+                // }
+                // socket = io({ query: { sid: userSid } });
+               
                 if (!socket.connected) {
                     socket.connect();
                 }
 
-                // Initialize socket connection with the user's session ID
-                const userSid = socket && socket.id ? socket.id : null;
-                socket = io({ query: { sid: userSid } });
-
-
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
                 stopButton.disabled = false;
-                frameInterval = setInterval(sendFrame, 350);
+                console.log("socket.connected",socket,socket.connected)
+                if (socket.connected){
+                    frameInterval = setInterval(sendFrame, 350);
+                }
                 streamLoading.hidden = true
                 chatDisplay.classList.remove('hidden');
 
@@ -216,7 +224,9 @@
                 streamErr.innerText = "Error accessing camera: " + error
                 streamLoading.hidden = true
                 console.error('Error accessing camera:', error);
-                socket.disconnect();
+                if (socket && socket.connected){
+                    socket.disconnect();
+                }
             }
         });
 
@@ -235,7 +245,7 @@
                 streamThumbTxt.hidden = false
                 clearInterval(frameInterval);
                 // Close the socket connection
-                if (socket) {
+                if (socket && socket.connected) {
                     socket.disconnect();
                 }
             }
@@ -249,16 +259,18 @@
                 const context = canvas.getContext("2d");
                 context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 const frameData = canvas.toDataURL("image/jpeg");
-
-                socket.emit("process_frame", {
-                    frame: frameData,
-                    sid: socket.id, // Include the session ID when emitting
-                });
+                
+                if (socket && socket.connected){
+                    socket.emit("process_frame", {
+                    frame: frameData
+                }); 
+                }
             }
         }
 
         // Listen for the "frame_processed" event from the backend
-        socket.on("frame_processed", result => {
+        if (socket && socket.connected){
+            socket.on("frame_processed", result => {
             // Extract the "prediction" value from the result
             const prediction = result.prediction;
             const newEle = document.createElement("p")
@@ -266,6 +278,8 @@
             chatDisplay.insertAdjacentElement("afterbegin", newEle);
             chatDisplay.scrollTop = chatDisplay.scrollHeight;
         });
+        }
+        
     </script>
 
     <!-- Bootstrap JS and Popper.js CDN links -->

@@ -18,7 +18,7 @@ from auth.auth_decorators import login_required
 from geventwebsocket.handler import WebSocketHandler
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Path to the folder where processed frames will be saved
@@ -45,10 +45,9 @@ logger.info("Model loaded successfully")
 
 
 # Processing function
-def predict_frame(frames, unique_number):
+def predict_frame(frames):
     global model
     global parquet
-    logger.info(f"Processing frame with unique number: {unique_number}")
 
     all_landmarks = model.create_landmarks(frames, parquet)
     sign = model.predict(all_landmarks)
@@ -74,9 +73,12 @@ user_data = {}
 
 @socketio.on("connect")
 def handle_connect():
-    user_sid = request.sid
-    user_data[user_sid] = {"frames": [], "unique_number": generate_unique_number(10)}
-    print(f"Client with SID {user_sid} connected")
+    print("Client connected started",request.sid)
+
+    # user_sid = request.sid
+    # print("Client connected")
+    # user_data[user_sid] = {"frames": [], "unique_number": generate_unique_number(10)}
+    # print(f"Client with SID {user_sid} connected")
 
 @socketio.on("disconnect")
 def handle_disconnect():
@@ -90,10 +92,10 @@ def handle_disconnect():
 def process_frame(data):
     global frames
     user_sid = request.sid
+    print(f"Processing frame for client with SID {user_sid}  {request}")
     if user_sid in user_data:
         user_info = user_data[user_sid]
         frame_data = data.get("frame", "")
-        unique_number = generate_unique_number(10)
         if frame_data:
             image_data = frame_data.split(",")[1]
             decoded_data = base64.b64decode(image_data)
@@ -101,7 +103,8 @@ def process_frame(data):
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             frames.append(frame)
         if len(user_info["frames"]) == 5:
-            result = predict_frame(user_info["frames"], user_info["unique_number"])
+            logger.info(f"Processing frame with unique number: {user_info}")
+            result = predict_frame(user_info["frames"])
             user_info["frames"] = []
             logger.info(
                 f"Frame processed successfully with unique frame number: {user_info['unique_number']}, result: {result}")
