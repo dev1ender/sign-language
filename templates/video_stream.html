@@ -154,7 +154,7 @@
 
     <!-- scripts -->
     <script>
-        let socket;
+        let socket = io();
         const videoElement = document.getElementById('video');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
@@ -165,10 +165,6 @@
 
         let stream;
         let frameInterval;
-
-        function generateCustomSocketID() {
-            return Math.random().toString(36).substr(2, 9);
-        }
 
         startButton.addEventListener('click', async () => {
             streamThumbTxt.hidden = true
@@ -192,28 +188,13 @@
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-                
                 // Attach the stream to the video element
                 videoElement.srcObject = stream;
-                socket = io();
-                console.log("socket",socket)
-                // Initialize socket connection with the user's session ID
-                // let userSid = socket && socket.id ? socket.id : null;
-                // if (userSid) {
-                //     throw new Error('Unable to get user session ID');
-                //     userSid= generateCustomSocketID();
-                // }
-                // socket = io({ query: { sid: userSid } });
-               
-                if (!socket.connected) {
-                    socket.connect();
-                }
-
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
                 stopButton.disabled = false;
-                console.log("socket.connected",socket,socket.connected)
-                if (socket.connected){
+                console.log("socket.connected", socket, socket.connected)
+                if (socket.connected) {
                     frameInterval = setInterval(sendFrame, 350);
                 }
                 streamLoading.hidden = true
@@ -224,7 +205,7 @@
                 streamErr.innerText = "Error accessing camera: " + error
                 streamLoading.hidden = true
                 console.error('Error accessing camera:', error);
-                if (socket && socket.connected){
+                if (socket && socket.connected) {
                     socket.disconnect();
                 }
             }
@@ -240,8 +221,8 @@
                 stopButton.disabled = true;
                 startButton.classList.remove('hidden');
                 stopButton.classList.add('hidden');
-                // chatDisplay.innerHTML = ""
-                // chatDisplay.classList.add('hidden');
+                chatDisplay.innerHTML = ""
+                chatDisplay.classList.add('hidden');
                 streamThumbTxt.hidden = false
                 clearInterval(frameInterval);
                 // Close the socket connection
@@ -259,18 +240,15 @@
                 const context = canvas.getContext("2d");
                 context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 const frameData = canvas.toDataURL("image/jpeg");
-                
-                if (socket && socket.connected){
-                    socket.emit("process_frame", {
+
+                socket.emit("process_frame", {
                     frame: frameData
-                }); 
-                }
+                });
             }
         }
 
         // Listen for the "frame_processed" event from the backend
-        if (socket && socket.connected){
-            socket.on("frame_processed", result => {
+        socket.on("frame_processed", result => {
             // Extract the "prediction" value from the result
             const prediction = result.prediction;
             const newEle = document.createElement("p")
@@ -278,8 +256,6 @@
             chatDisplay.insertAdjacentElement("afterbegin", newEle);
             chatDisplay.scrollTop = chatDisplay.scrollHeight;
         });
-        }
-        
     </script>
 
     <!-- Bootstrap JS and Popper.js CDN links -->
