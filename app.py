@@ -69,38 +69,45 @@ def index():
     logger.info("Rendering index page")
     return render_template("video_stream.html")
 
+user_data = {}
+
 
 @socketio.on("connect")
 def handle_connect():
-    print("Client connected")
-
+    user_sid = request.sid
+    user_data[user_sid] = {"frames": [], "unique_number": generate_unique_number(10)}
+    print(f"Client with SID {user_sid} connected")
 
 @socketio.on("disconnect")
 def handle_disconnect():
-    print("Client disconnected")
-
-
-frames = []
+    user_sid = request.sid
+    if user_sid in user_data:
+        del user_data[user_sid]
+        print(f"Client with SID {user_sid} disconnected")
 
 
 @socketio.on("process_frame")
 def process_frame(data):
     global frames
-    frame_data = data.get("frame", "")
-    unique_number = generate_unique_number(10)
-    if frame_data:
-        image_data = frame_data.split(",")[1]
-        decoded_data = base64.b64decode(image_data)
-        nparr = np.frombuffer(decoded_data, np.uint8)
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        frames.append(frame)
-    if len(frames) == 5:
-        result = predict_frame(frames, unique_number)
-        frames = []
-        logger.info(
-            f"Frame processed successfully with unique frame number: {unique_number}, result: {result}")
-        emit("frame_processed", result)
-    logger.info(f"frame count {len(frames)}")
+    user_sid = request.sid
+    if user_sid in user_data:
+        user_info = user_data[user_sid]
+        frame_data = data.get("frame", "")
+        unique_number = generate_unique_number(10)
+        if frame_data:
+            image_data = frame_data.split(",")[1]
+            decoded_data = base64.b64decode(image_data)
+            nparr = np.frombuffer(decoded_data, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            frames.append(frame)
+        if len(user_info["frames"]) == 5:
+            result = predict_frame(user_info["frames"], user_info["unique_number"])
+            user_info["frames"] = []
+            logger.info(
+                f"Frame processed successfully with unique frame number: {user_info['unique_number']}, result: {result}")
+            # Emit the frame_processed event only to the same client
+            emit("frame_processed", result, room=user_sid)  # Emit to the specific client
+        logger.info(f"frame count {len(frames)}")
 
 
 if __name__ == "__main__":

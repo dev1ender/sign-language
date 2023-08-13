@@ -188,6 +188,7 @@
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
 
+                
                 // Attach the stream to the video element
                 videoElement.srcObject = stream;
 
@@ -197,6 +198,11 @@
                 if (!socket.connected) {
                     socket.connect();
                 }
+
+                // Initialize socket connection with the user's session ID
+                const userSid = socket && socket.id ? socket.id : null;
+                socket = io({ query: { sid: userSid } });
+
 
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
@@ -229,7 +235,7 @@
                 streamThumbTxt.hidden = false
                 clearInterval(frameInterval);
                 // Close the socket connection
-                if (!socket.connected) {
+                if (socket) {
                     socket.disconnect();
                 }
             }
@@ -245,7 +251,8 @@
                 const frameData = canvas.toDataURL("image/jpeg");
 
                 socket.emit("process_frame", {
-                    frame: frameData
+                    frame: frameData,
+                    sid: socket.id, // Include the session ID when emitting
                 });
             }
         }
