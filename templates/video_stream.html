@@ -106,12 +106,6 @@
         .hidden {
             display: none;
         }
-
-        .logout-btn {
-            position: absolute;
-            top: 1%;
-            right: 1%;
-        }
     </style>
 </head>
 
@@ -120,9 +114,6 @@
     <center>
         <h2>Sign Language Detection</h2>
     </center>
-
-    <!-- logout btn -->
-    <a class="btn btn-warning logout-btn p-1" href="/logout">Logout</a>
 
     <!-- stream box -->
     <div class="container row">
@@ -232,9 +223,7 @@
                 context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 const frameData = canvas.toDataURL("image/jpeg");
 
-                socket.emit("process_frame", {
-                    frame: frameData
-                });
+                socket.emit("process_frame", { frame: frameData });
             }
         }
 
