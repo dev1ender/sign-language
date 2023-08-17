@@ -154,7 +154,8 @@
 
     <!-- scripts -->
     <script>
-        let socket;
+        // let socket;
+        let socket ;
         const videoElement = document.getElementById('video');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
@@ -165,6 +166,8 @@
 
         let stream;
         let frameInterval;
+        let debugInterval;
+
 
         function generateCustomSocketID() {
             return Math.random().toString(36).substr(2, 9);
@@ -191,40 +194,41 @@
             }
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-                
                 // Attach the stream to the video element
                 videoElement.srcObject = stream;
-                socket = io();
-                console.log("socket",socket)
-                // Initialize socket connection with the user's session ID
-                // let userSid = socket && socket.id ? socket.id : null;
-                // if (userSid) {
-                //     throw new Error('Unable to get user session ID');
-                //     userSid= generateCustomSocketID();
-                // }
-                // socket = io({ query: { sid: userSid } });
-               
-                if (!socket.connected) {
-                    socket.connect();
-                }
+                room = generateCustomSocketID();
+                socket = io({
+                    debug: true,
+                    reconnection:true,
+                });
 
                 startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
                 stopButton.disabled = false;
-                console.log("socket.connected",socket,socket.connected)
-                if (socket.connected){
-                    frameInterval = setInterval(sendFrame, 350);
-                }
+
+                setTimeout(() => {
+                    if (socket.connected) {
+                        frameInterval = setInterval(sendFrame, 350);
+                    }
+                }, 1000);
+                
                 streamLoading.hidden = true
                 chatDisplay.classList.remove('hidden');
+
+                socket.on("frame_processed", result => {
+                    const prediction = result.prediction;
+                    const newEle = document.createElement("p");
+                    newEle.innerText = "Prediction: " + prediction;
+                    chatDisplay.insertAdjacentElement("afterbegin", newEle);
+                    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+                });
 
             } catch (error) {
                 streamErr.hidden = false
                 streamErr.innerText = "Error accessing camera: " + error
                 streamLoading.hidden = true
                 console.error('Error accessing camera:', error);
-                if (socket && socket.connected){
+                if (socket){
                     socket.disconnect();
                 }
             }
@@ -240,13 +244,14 @@
                 stopButton.disabled = true;
                 startButton.classList.remove('hidden');
                 stopButton.classList.add('hidden');
-                // chatDisplay.innerHTML = ""
-                // chatDisplay.classList.add('hidden');
                 streamThumbTxt.hidden = false
                 clearInterval(frameInterval);
+                clearInterval(debugInterval);
                 // Close the socket connection
-                if (socket && socket.connected) {
+                try {
                     socket.disconnect();
+                } catch (error) {
+                    console.log("error",error)
                 }
             }
         });
@@ -259,25 +264,12 @@
                 const context = canvas.getContext("2d");
                 context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
                 const frameData = canvas.toDataURL("image/jpeg");
-                
                 if (socket && socket.connected){
                     socket.emit("process_frame", {
                     frame: frameData
                 }); 
                 }
             }
-        }
-
-        // Listen for the "frame_processed" event from the backend
-        if (socket && socket.connected){
-            socket.on("frame_processed", result => {
-            // Extract the "prediction" value from the result
-            const prediction = result.prediction;
-            const newEle = document.createElement("p")
-            newEle.innerText = "Prediction: " + prediction
-            chatDisplay.insertAdjacentElement("afterbegin", newEle);
-            chatDisplay.scrollTop = chatDisplay.scrollHeight;
-        });
         }
         
     </script>
